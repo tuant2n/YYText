@@ -104,8 +104,8 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
 @end
 
 
-@interface YYTextView () <UIScrollViewDelegate, UIAlertViewDelegate, YYTextDebugTarget, YYTextKeyboardObserver> {
-    
+@interface YYTextView () <UIScrollViewDelegate, YYTextDebugTarget, YYTextKeyboardObserver>
+{
     YYTextRange *_selectedTextRange; /// nonnull
     YYTextRange *_markedTextRange;
     
@@ -332,12 +332,12 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     _selectionView.selectionRects = allRects;
     if (!_state.firstShowDot && containsDot) {
         _state.firstShowDot = YES;
-        /*
-         The dot position may be wrong at the first time displayed.
-         I can't find the reason. Here's a workaround.
-         */
+
+        weakify(self);
+        
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [[YYTextEffectWindow sharedWindow] showSelectionDot:_selectionView];
+            strongify(self);
+            [[YYTextEffectWindow sharedWindow] showSelectionDot:self->_selectionView];
         });
     }
     [[YYTextEffectWindow sharedWindow] showSelectionDot:_selectionView];
@@ -635,12 +635,22 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     }
     
     if (self.isFirstResponder || _containerView.isFirstResponder) {
+        weakify(self);
+        
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.01 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            strongify(self);
+            
             UIMenuController *menu = [UIMenuController sharedMenuController];
-            [menu setTargetRect:CGRectStandardize(rect) inView:_selectionView];
+            if (@available(iOS 13.0, *)) {
+                [menu showMenuFromView:self->_selectionView rect:CGRectStandardize(rect)];
+            }
+            else {
+                [menu setTargetRect:CGRectStandardize(rect) inView:self->_selectionView];
+            }
             [menu update];
-            if (!_state.showingMenu || !menu.menuVisible) {
-                _state.showingMenu = YES;
+            
+            if (!self->_state.showingMenu || !menu.menuVisible) {
+                self->_state.showingMenu = YES;
                 [menu setMenuVisible:YES animated:YES];
             }
         });
@@ -778,9 +788,13 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     if (_insetModifiedByKeyboard) {
         _insetModifiedByKeyboard = NO;
         if (animated) {
+            weakify(self);
+            
             [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction | UIViewAnimationCurveEaseOut  animations:^{
-                [super setContentInset:_originalContentInset];
-                [super setScrollIndicatorInsets:_originalScrollIndicatorInsets];
+                strongify(self);
+                
+                [super setContentInset:self->_originalContentInset];
+                [super setScrollIndicatorInsets:self->_originalScrollIndicatorInsets];
             } completion:NULL];
         } else {
             [super setContentInset:_originalContentInset];
@@ -792,14 +806,21 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
 /// Keyboard frame changed, scroll the caret to visible range, or modify the content insets.
 - (void)_keyboardChanged {
     if (!self.isFirstResponder) return;
+    
+    weakify(self);
+    
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        strongify(self);
+        
         if ([YYTextKeyboardManager defaultManager].keyboardVisible) {
-            [self _scrollRangeToVisible:_selectedTextRange];
+            [self _scrollRangeToVisible:self->_selectedTextRange];
         } else {
             [self _restoreInsetsAnimated:YES];
         }
+        
         [self _updateMagnifier];
-        if (_state.showingMenu) {
+        
+        if (self->_state.showingMenu) {
             [self _showMenu];
         }
     });
@@ -980,20 +1001,28 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
             _state.autoScrollTicked = YES;
             _trackingPoint.x += offset.x - self.contentOffset.x;
             _trackingPoint.y += offset.y - self.contentOffset.y;
+            
+            weakify(self);
+            
             [UIView animateWithDuration:kAutoScrollMinimumDuration delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionCurveLinear animations:^{
                 [self setContentOffset:offset];
             } completion:^(BOOL finished) {
-                if (_state.trackingTouch) {
-                    if (_state.trackingGrabber) {
+                strongify(self);
+                
+                if (self->_state.trackingTouch) {
+                    if (self->_state.trackingGrabber) {
                         [self _showMagnifierRanged];
                         [self _updateTextRangeByTrackingGrabber];
-                    } else if (_state.trackingPreSelect) {
+                    }
+                    else if (self->_state.trackingPreSelect) {
                         [self _showMagnifierCaret];
                         [self _updateTextRangeByTrackingPreSelect];
-                    } else if (_state.trackingCaret) {
-                        if (_markedTextRange) {
+                    }
+                    else if (self->_state.trackingCaret) {
+                        if (self->_markedTextRange) {
                             [self _showMagnifierRanged];
-                        } else {
+                        }
+                        else {
                             [self _showMagnifierCaret];
                         }
                         [self _updateTextRangeByTrackingCaret];
@@ -1510,6 +1539,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     [self _setAttributedText:_innerText];
 }
 
+- (NSString *)plainText
+{
+    return _text;
+}
+
 /// Parse text with `textParser` and update the _selectedTextRange.
 /// @return Whether changed (text or selection)
 - (BOOL)_parseText {
@@ -1686,63 +1720,41 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     UIViewController *ctrl = [self _getRootViewController];
     
     if (canUndo && canRedo) {
-        if (kiOS8Later) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[4] message:@"" preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[3] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-                [_self _undo];
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[2] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-                [_self _redo];
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [ctrl presentViewController:alert animated:YES completion:nil];
-        } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strings[4] message:@"" delegate:self cancelButtonTitle:strings[0] otherButtonTitles:strings[3], strings[2], nil];
-            [alert show];
-#pragma clang diagnostic pop
-        }
-    } else if (canUndo) {
-        if (kiOS8Later) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[4] message:@"" preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[3] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-                [_self _undo];
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [ctrl presentViewController:alert animated:YES completion:nil];
-        } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strings[4] message:@"" delegate:self cancelButtonTitle:strings[0] otherButtonTitles:strings[3], nil];
-            [alert show];
-#pragma clang diagnostic pop
-        }
-    } else if (canRedo) {
-        if (kiOS8Later) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[2] message:@"" preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-                [_self _redo];
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
-                [_self _restoreFirstResponderAfterUndoAlert];
-            }]];
-            [ctrl presentViewController:alert animated:YES completion:nil];
-        } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strings[2] message:@"" delegate:self cancelButtonTitle:strings[0] otherButtonTitles:strings[1], nil];
-            [alert show];
-#pragma clang diagnostic pop
-        }
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[4] message:@"" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[3] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [_self _undo];
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[2] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [_self _redo];
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [ctrl presentViewController:alert animated:YES completion:nil];
+    }
+    else if (canUndo) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[4] message:@"" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[3] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [_self _undo];
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [ctrl presentViewController:alert animated:YES completion:nil];
+    }
+    else if (canRedo) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:strings[2] message:@"" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [_self _redo];
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:strings[0] style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+            [_self _restoreFirstResponderAfterUndoAlert];
+        }]];
+        [ctrl presentViewController:alert animated:YES completion:nil];
     }
 }
 #endif
@@ -3206,37 +3218,29 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     [self _keyboardChanged];
 }
 
-#pragma mark - @protocol UIALertViewDelegate
-
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    NSString *title = [alertView buttonTitleAtIndex:buttonIndex];
-    if (title.length == 0) return;
-    NSArray *strings = [self _localizedUndoStrings];
-    if ([title isEqualToString:strings[1]] || [title isEqualToString:strings[2]]) {
-        [self _redo];
-    } else if ([title isEqualToString:strings[3]] || [title isEqualToString:strings[4]]) {
-        [self _undo];
-    }
-    [self _restoreFirstResponderAfterUndoAlert];
-}
-
 #pragma mark - @protocol UIKeyInput
 
-- (BOOL)hasText {
+- (BOOL)hasText
+{
     return _innerText.length > 0;
 }
 
-- (void)insertText:(NSString *)text {
+- (void)insertText:(NSString *)text
+{
     if (text.length == 0) return;
+    
     if (!NSEqualRanges(_lastTypeRange, _selectedTextRange.asRange)) {
         [self _saveToUndoStack];
         [self _resetRedoStack];
     }
+    
     [self replaceRange:_selectedTextRange withText:text];
 }
 
-- (void)deleteBackward {
+- (void)deleteBackward
+{
     [self _updateIfNeeded];
+    
     NSRange range = _selectedTextRange.asRange;
     if (range.location == 0 && range.length == 0) return;
     _state.typingAttributesOnce = NO;
@@ -3265,10 +3269,17 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
             range = extendRange.asRange;
         }
     }
+    
     if (!NSEqualRanges(_lastTypeRange, _selectedTextRange.asRange)) {
         [self _saveToUndoStack];
         [self _resetRedoStack];
     }
+    
+    [self deleteBackwardInRange:range];
+}
+
+- (void)deleteBackwardInRange:(NSRange)range
+{
     [self replaceRange:[YYTextRange rangeWithRange:range] withText:@""];
 }
 
@@ -3455,7 +3466,7 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     _lastTypeRange = _selectedTextRange.asRange;
 }
 
-- (void)setBaseWritingDirection:(UITextWritingDirection)writingDirection forRange:(YYTextRange *)range {
+- (void)setBaseWritingDirection:(NSWritingDirection)writingDirection forRange:(YYTextRange *)range {
     if (!range) return;
     range = [self _correctedTextRange:range];
     [_innerText yy_setBaseWritingDirection:(NSWritingDirection)writingDirection range:range.asRange];
@@ -3468,11 +3479,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     return [_innerText.string substringWithRange:range.asRange];
 }
 
-- (UITextWritingDirection)baseWritingDirectionForPosition:(YYTextPosition *)position inDirection:(UITextStorageDirection)direction {
+- (NSWritingDirection)baseWritingDirectionForPosition:(YYTextPosition *)position inDirection:(UITextStorageDirection)direction {
     [self _updateIfNeeded];
     position = [self _correctedTextPosition:position];
-    if (!position) return UITextWritingDirectionNatural;
-    if (_innerText.length == 0) return UITextWritingDirectionNatural;
+    if (!position) return NSWritingDirectionNatural;
+    if (_innerText.length == 0) return NSWritingDirectionNatural;
     NSUInteger idx = position.offset;
     if (idx == _innerText.length) idx--;
     
@@ -3481,11 +3492,10 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     if (paraStyle) {
         CTWritingDirection baseWritingDirection;
         if (CTParagraphStyleGetValueForSpecifier(paraStyle, kCTParagraphStyleSpecifierBaseWritingDirection, sizeof(CTWritingDirection), &baseWritingDirection)) {
-            return (UITextWritingDirection)baseWritingDirection;
+            return (NSWritingDirection)baseWritingDirection;
         }
     }
-    
-    return UITextWritingDirectionNatural;
+    return NSWritingDirectionNatural;
 }
 
 - (YYTextPosition *)beginningOfDocument {
