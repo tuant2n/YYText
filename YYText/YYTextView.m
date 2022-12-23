@@ -333,10 +333,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     if (!_state.firstShowDot && containsDot) {
         _state.firstShowDot = YES;
 
-        weakify(self);
+        __weak typeof(self) _self = self;
         
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            strongify(self);
+            __strong typeof(_self) self = _self;
+            if (!self) return;
             [[YYTextEffectWindow sharedWindow] showSelectionDot:self->_selectionView];
         });
     }
@@ -635,10 +636,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     }
     
     if (self.isFirstResponder || _containerView.isFirstResponder) {
-        weakify(self);
+        __weak typeof(self) _self = self;
         
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.01 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            strongify(self);
+            __strong typeof(_self) self = _self;
+            if (!self) return;
             
             UIMenuController *menu = [UIMenuController sharedMenuController];
             if (@available(iOS 13.0, *)) {
@@ -788,10 +790,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     if (_insetModifiedByKeyboard) {
         _insetModifiedByKeyboard = NO;
         if (animated) {
-            weakify(self);
+            __weak typeof(self) _self = self;
             
             [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction | UIViewAnimationCurveEaseOut  animations:^{
-                strongify(self);
+                __strong typeof(_self) self = _self;
+                if (!self) return;
                 
                 [super setContentInset:self->_originalContentInset];
                 [super setScrollIndicatorInsets:self->_originalScrollIndicatorInsets];
@@ -807,10 +810,11 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
 - (void)_keyboardChanged {
     if (!self.isFirstResponder) return;
     
-    weakify(self);
+    __weak typeof(self) _self = self;
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        strongify(self);
+        __strong typeof(_self) self = _self;
+        if (!self) return;
         
         if ([YYTextKeyboardManager defaultManager].keyboardVisible) {
             [self _scrollRangeToVisible:self->_selectedTextRange];
@@ -1002,12 +1006,13 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
             _trackingPoint.x += offset.x - self.contentOffset.x;
             _trackingPoint.y += offset.y - self.contentOffset.y;
             
-            weakify(self);
+            __weak typeof(self) _self = self;
             
             [UIView animateWithDuration:kAutoScrollMinimumDuration delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionCurveLinear animations:^{
                 [self setContentOffset:offset];
             } completion:^(BOOL finished) {
-                strongify(self);
+                __strong typeof(_self) self = _self;
+                if (!self) return;
                 
                 if (self->_state.trackingTouch) {
                     if (self->_state.trackingGrabber) {
