@@ -1510,11 +1510,6 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
     [self _setAttributedText:_innerText];
 }
 
-- (NSString *)plainText
-{
-    return _text;
-}
-
 /// Parse text with `textParser` and update the _selectedTextRange.
 /// @return Whether changed (text or selection)
 - (BOOL)_parseText {
@@ -3274,11 +3269,6 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
         [self _saveToUndoStack];
         [self _resetRedoStack];
     }
-    [self replaceRange:[YYTextRange rangeWithRange:range] withText:@""];
-}
-
-- (void)deleteBackwardInRange:(NSRange)range
-{
     [self replaceRange:[YYTextRange rangeWithRange:range] withText:@""];
 }
 

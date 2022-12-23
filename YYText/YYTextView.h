@@ -345,9 +345,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic) CGFloat extraAccessoryViewHeight;
 
-- (NSString *)plainText;
-- (void)deleteBackwardInRange:(NSRange)range;
-
 @end
 
 
