@@ -2148,6 +2148,10 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
 }
 
 - (void)setAttributedText:(NSAttributedString *)attributedText {
+    [self setAttributedText:attributedText needNotify:YES];
+}
+
+- (void)setAttributedText:(NSAttributedString *)attributedText needNotify:(BOOL)needNotify {
     if (_attributedText == attributedText) return;
     [self _setAttributedText:attributedText];
     _state.typingAttributesOnce = NO;
@@ -2157,7 +2161,7 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
         [self replaceRange:[YYTextRange rangeWithRange:NSMakeRange(0, _innerText.length)] withText:@""];
         return;
     }
-    if ([self.delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)]) {
+    if (needNotify && [self.delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)]) {
         BOOL should = [self.delegate textView:self shouldChangeTextInRange:NSMakeRange(0, _innerText.length) replacementText:text.string];
         if (!should) return;
     }
@@ -2188,10 +2192,13 @@ typedef NS_ENUM(NSUInteger, YYTextMoveDirection) {
         [self _scrollRangeToVisible:_selectedTextRange];
     }
     
-    if ([self.delegate respondsToSelector:@selector(textViewDidChange:)]) {
+    if (needNotify && [self.delegate respondsToSelector:@selector(textViewDidChange:)]) {
         [self.delegate textViewDidChange:self];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName:YYTextViewTextDidChangeNotification object:self];
+    
+    if (needNotify) {
+        [[NSNotificationCenter defaultCenter] postNotificationName:YYTextViewTextDidChangeNotification object:self];
+    }
     
     if (!_state.insideUndoBlock) {
         [self _resetUndoAndRedoStack];

@@ -152,6 +152,8 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nullable, nonatomic, copy) NSAttributedString *attributedText;
 
+- (void)setAttributedText:(NSAttributedString *)attributedText needNotify:(BOOL)needNotify;
+
 /**
  When `text` or `attributedText` is changed, the parser will be called to modify the text.
  It can be used to add code highlighting or emoticon replacement to text view.
