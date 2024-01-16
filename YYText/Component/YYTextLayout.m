@@ -3310,7 +3310,12 @@ static void YYTextDrawDebug(YYTextLayout *layout, CGContextRef context, CGSize s
                             rect = CGRectMake(pos.x, pos.y - ascent, adv.width, runTypoBounds.size.height);
                         }
                         if (op.CGGlyphFillColor) {
-                            [op.CGGlyphFillColor setFill];
+                            if (g%2 == 0) {
+                                [[UIColor redColor] setFill];
+                            }
+                            else {
+                                [[UIColor greenColor] setFill];
+                            }
                             CGContextAddRect(context, YYTextCGRectPixelRound(rect));
                             CGContextFillPath(context);
                         }
