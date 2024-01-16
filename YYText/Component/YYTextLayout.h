@@ -103,8 +103,6 @@ extern const CGSize YYTextContainerMaxSize;
 /// give you a chance to modify the line position. Default is nil.
 @property (nullable, copy) id<YYTextLinePositionModifier> linePositionModifier;
 
-@property (nonatomic, copy) void (^didDraw)();
-
 @end
 
 
@@ -568,6 +566,8 @@ extern const CGSize YYTextContainerMaxSize;
  @warning This method must be called on main thread.
  */
 - (void)removeAttachmentFromViewAndLayer;
+
+@property (nonatomic, copy) void (^didDraw)();
 
 @end
 
