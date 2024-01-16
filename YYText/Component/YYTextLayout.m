@@ -3310,12 +3310,7 @@ static void YYTextDrawDebug(YYTextLayout *layout, CGContextRef context, CGSize s
                             rect = CGRectMake(pos.x, pos.y - ascent, adv.width, runTypoBounds.size.height);
                         }
                         if (op.CGGlyphFillColor) {
-                            if (g%2 == 0) {
-                                [[UIColor redColor] setFill];
-                            }
-                            else {
-                                [[UIColor greenColor] setFill];
-                            }
+                            [op.CGGlyphFillColor setFill];
                             CGContextAddRect(context, YYTextCGRectPixelRound(rect));
                             CGContextFillPath(context);
                         }
@@ -3382,6 +3377,10 @@ static void YYTextDrawDebug(YYTextLayout *layout, CGContextRef context, CGSize s
             if (cancel && cancel()) return;
             YYTextDrawDebug(self, context, size, point, debug);
         }
+    }
+    
+    if (self.didDraw) {
+        self.didDraw();
     }
 }
 
